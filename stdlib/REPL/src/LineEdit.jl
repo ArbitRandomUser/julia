@@ -2219,6 +2219,13 @@ function edit_abort(s::MIState, confirm::Bool=options(s).confirm_exit; key="^D")
     end
 end
 
+
+const vim_keymap =
+AnyDict(
+	'h' => (s::MIState,o...)-> edit_move_left(s),
+	'l' => (s::MIState,o...)-> edit_move_right(s),
+	)
+
 const default_keymap =
 AnyDict(
     # Tab

@@ -984,6 +984,14 @@ function setup_interface(
         end,
         sticky = true)
 
+    edit_mode = Prompt("edit>",
+		prompt_prefix = hascolor ? repl.prompt_color : "",
+		prompt_suffix = hascolor ?
+		    (repl.envcolors ? Base.input_color : repl.input_color) : "",
+		repl=repl,
+		complete = replc,
+		)
+
 
     ################################# Stage II #############################
 
@@ -1044,6 +1052,12 @@ function setup_interface(
                 edit_insert(s, ';')
             end
         end,
+	'\0'=> function (s::MIState,o...)
+		  buf=copy(LineEdit.buffer(s))
+		  transistion(s, edit_mode) do
+		    LineEdit.state(s, edit_mode).input_buffer = buf
+		  end
+	end,
         '?' => function (s::MIState,o...)
             if isempty(s) || position(LineEdit.buffer(s)) == 0
                 buf = copy(LineEdit.buffer(s))
@@ -1227,7 +1241,9 @@ function setup_interface(
 
     shell_mode.keymap_dict = help_mode.keymap_dict = LineEdit.keymap(b)
 
-    allprompts = LineEdit.TextInterface[julia_prompt, shell_mode, help_mode, search_prompt, prefix_prompt]
+    edit_mode.keymap_dict = LineEdit.keymap(vim_keymap)
+
+    allprompts = LineEdit.TextInterface[julia_prompt, shell_mode, help_mode, search_prompt, prefix_prompt , edit_mode]
     return ModalInterface(allprompts)
 end
 
