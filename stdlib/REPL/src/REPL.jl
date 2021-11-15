@@ -79,6 +79,7 @@ const JULIA_PROMPT = "julia> "
 const PKG_PROMPT = "pkg> "
 const SHELL_PROMPT = "shell> "
 const HELP_PROMPT = "help?> "
+const EDIT_PROMPT = "edit> "
 
 mutable struct REPLBackend
     "channel for AST"
@@ -984,7 +985,7 @@ function setup_interface(
         end,
         sticky = true)
 
-    edit_mode = Prompt("edit>",
+    edit_mode = Prompt(EDIT_PROMPT,
 		prompt_prefix = hascolor ? repl.prompt_color : "",
 		prompt_suffix = hascolor ?
 		    (repl.envcolors ? Base.input_color : repl.input_color) : "",
@@ -999,7 +1000,9 @@ function setup_interface(
     # We will have a unified history for all REPL modes
     hp = REPLHistoryProvider(Dict{Symbol,Prompt}(:julia => julia_prompt,
                                                  :shell => shell_mode,
-                                                 :help  => help_mode))
+                                                 :help  => help_mode,
+						 :edit => edit_mode,
+						 ))
     if repl.history_file
         try
             hist_path = find_hist_file()
@@ -1023,6 +1026,7 @@ function setup_interface(
     julia_prompt.hist = hp
     shell_mode.hist = hp
     help_mode.hist = hp
+    edit_mode.hist = hp
 
     julia_prompt.on_done = respond(x->Base.parse_input_line(x,filename=repl_filename(repl,hp)), repl, julia_prompt)
 
@@ -1041,7 +1045,24 @@ function setup_interface(
         extra_repl_keymap = AnyDict[extra_repl_keymap]
     end
 
+    edit_keymap = AnyDict(
+	#go back to julia prompt from edit mode
+	"^e" => function (s::MIState,o...)
+		  buf=copy(LineEdit.buffer(s))
+		  transition(s, julia_prompt) do
+		    LineEdit.state(s, julia_prompt).input_buffer = buf
+		  end
+	end,
+    )
+
     repl_keymap = AnyDict(
+	#go to edit mode
+	"^e" => function (s::MIState,o...)
+		  buf=copy(LineEdit.buffer(s))
+		  transition(s, edit_mode) do
+		    LineEdit.state(s, edit_mode).input_buffer = buf
+		  end
+	end,
         ';' => function (s::MIState,o...)
             if isempty(s) || position(LineEdit.buffer(s)) == 0
                 buf = copy(LineEdit.buffer(s))
@@ -1052,12 +1073,6 @@ function setup_interface(
                 edit_insert(s, ';')
             end
         end,
-	'\0'=> function (s::MIState,o...)
-		  buf=copy(LineEdit.buffer(s))
-		  transistion(s, edit_mode) do
-		    LineEdit.state(s, edit_mode).input_buffer = buf
-		  end
-	end,
         '?' => function (s::MIState,o...)
             if isempty(s) || position(LineEdit.buffer(s)) == 0
                 buf = copy(LineEdit.buffer(s))
@@ -1241,7 +1256,8 @@ function setup_interface(
 
     shell_mode.keymap_dict = help_mode.keymap_dict = LineEdit.keymap(b)
 
-    edit_mode.keymap_dict = LineEdit.keymap(vim_keymap)
+    c = Dict{Any,Any}[edit_keymap, LineEdit.vim_keymap] 
+    edit_mode.keymap_dict = LineEdit.keymap(c)
 
     allprompts = LineEdit.TextInterface[julia_prompt, shell_mode, help_mode, search_prompt, prefix_prompt , edit_mode]
     return ModalInterface(allprompts)

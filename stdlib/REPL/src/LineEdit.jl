@@ -2224,6 +2224,8 @@ const vim_keymap =
 AnyDict(
 	'h' => (s::MIState,o...)-> edit_move_left(s),
 	'l' => (s::MIState,o...)-> edit_move_right(s),
+	'k' => (s::MIState,o...)->(edit_move_up(s) || history_prev(s, mode(s).hist)),
+	'j' => (s::MIState,o...)->(edit_move_down(s) || history_next(s, mode(s).hist)),
 	)
 
 const default_keymap =
